@@ -31,7 +31,7 @@ export default function Messages() {
       loadMessages();
       markAsRead(selectedConversation.id);
 
-      // Subscribe to new messages
+      // Subscribe to new messages with real-time updates
       const channel = supabase
         .channel(`messages:${selectedConversation.id}`)
         .on(
@@ -42,8 +42,26 @@ export default function Messages() {
             table: 'messages',
             filter: `conversation_id=eq.${selectedConversation.id}`
           },
-          () => {
-            loadMessages();
+          async (payload) => {
+            console.log('New message received:', payload);
+            // Fetch the complete message with sender info
+            const { data: newMsg } = await supabase
+              .from('messages')
+              .select(`*, sender:profiles!messages_sender_id_fkey(*)`)
+              .eq('id', payload.new.id)
+              .single();
+            
+            if (newMsg) {
+              setMessages(prev => {
+                // Avoid duplicates
+                if (prev.some(m => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg as Message];
+              });
+              // Mark as read if from other user
+              if (newMsg.sender_id !== profile?.id) {
+                markAsRead(selectedConversation.id);
+              }
+            }
           }
         )
         .subscribe();
