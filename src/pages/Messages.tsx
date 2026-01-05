@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useMessages } from '@/hooks/useMessages';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +20,32 @@ export default function Messages() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch unread counts for all conversations
+  useEffect(() => {
+    const fetchUnreadCounts = async () => {
+      if (!profile || conversations.length === 0) return;
+      
+      const counts: Record<string, number> = {};
+      
+      for (const conv of conversations) {
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id)
+          .eq('is_read', false)
+          .neq('sender_id', profile.id);
+        
+        counts[conv.id] = count || 0;
+      }
+      
+      setUnreadCounts(counts);
+    };
+    
+    fetchUnreadCounts();
+  }, [profile, conversations]);
 
   const getOtherParticipant = (conv: Conversation) => {
     if (!profile) return null;
@@ -118,28 +144,46 @@ export default function Messages() {
                     const other = getOtherParticipant(conv);
                     if (!other) return null;
                     
+                    const unreadCount = unreadCounts[conv.id] || 0;
+                    
                     return (
                       <button
                         key={conv.id}
-                        onClick={() => setSelectedConversation(conv)}
+                        onClick={() => {
+                          setSelectedConversation(conv);
+                          // Clear unread count when selecting
+                          setUnreadCounts(prev => ({ ...prev, [conv.id]: 0 }));
+                        }}
                         className={`w-full p-4 flex items-center gap-3 hover:bg-secondary transition-colors text-left ${
                           selectedConversation?.id === conv.id ? 'bg-secondary' : ''
                         }`}
                       >
-                        <Avatar>
-                          <AvatarImage src={other.avatar_url || undefined} />
-                          <AvatarFallback className="gradient-primary text-primary-foreground">
-                            {other.display_name?.charAt(0) || other.username?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="relative">
+                          <Avatar>
+                            <AvatarImage src={other.avatar_url || undefined} />
+                            <AvatarFallback className="gradient-primary text-primary-foreground">
+                              {other.display_name?.charAt(0) || other.username?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                          {unreadCount > 0 && (
+                            <Badge 
+                              className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-xs gradient-primary border-0"
+                            >
+                              {unreadCount > 99 ? '99+' : unreadCount}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">
+                          <p className={`font-medium truncate ${unreadCount > 0 ? 'font-bold' : ''}`}>
                             {other.display_name || other.username}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })}
                           </p>
                         </div>
+                        {unreadCount > 0 && (
+                          <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                        )}
                       </button>
                     );
                   })}
