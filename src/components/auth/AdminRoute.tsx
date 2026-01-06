@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import AccessDenied from "@/pages/AccessDenied";
 
 interface AdminRouteProps {
   children: React.ReactNode;
@@ -21,7 +22,7 @@ export function AdminRoute({ children }: AdminRouteProps) {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/feed" replace />;
+    return <AccessDenied requiredRole="admin" />;
   }
 
   return <>{children}</>;

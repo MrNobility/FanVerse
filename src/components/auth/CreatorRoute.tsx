@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import AccessDenied from "@/pages/AccessDenied";
 
 interface CreatorRouteProps {
   children: React.ReactNode;
@@ -21,7 +22,7 @@ export function CreatorRoute({ children }: CreatorRouteProps) {
   }
 
   if (!isCreator) {
-    return <Navigate to="/feed" replace />;
+    return <AccessDenied requiredRole="creator" />;
   }
 
   return <>{children}</>;
