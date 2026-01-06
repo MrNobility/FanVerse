@@ -122,7 +122,7 @@ export default function Auth() {
           <p className="text-muted-foreground mt-2">{isLogin ? 'Welcome back!' : 'Join the community'}</p>
         </div>
 
-        <Card className="border-border/50">
+        <Card className="border-border/50 relative z-10">
           <CardHeader>
             <CardTitle className="font-display">{isLogin ? 'Sign In' : 'Create Account'}</CardTitle>
             <CardDescription>{isLogin ? 'Enter your credentials to access your account' : 'Fill in your details to get started'}</CardDescription>
