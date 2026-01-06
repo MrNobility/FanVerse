@@ -10,7 +10,8 @@ import { CreatorRoute } from "./components/auth/CreatorRoute";
 import { AdminRoute } from "./components/auth/AdminRoute";
 
 import Landing from "./pages/Landing";
-import Auth from "./pages/Auth";
+import Auth from "./pages/Auth"; // This is now your Login page
+import Signup from "./pages/Signup"; // Import your new Signup page
 import Feed from "./pages/Feed";
 import Discover from "./pages/Discover";
 import CreatorProfile from "./pages/CreatorProfile";
@@ -36,7 +37,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
   
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    // Redirecting to /login now
+    return <Navigate to="/login" replace />;
   }
   
   return <>{children}</>;
@@ -46,7 +48,14 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
-      <Route path="/auth" element={<Auth />} />
+      
+      {/* Separate Auth Routes */}
+      <Route path="/login" element={<Auth />} />
+      <Route path="/signup" element={<Signup />} />
+      
+      {/* Compatibility redirect: if anything still points to /auth, send it to /login */}
+      <Route path="/auth" element={<Navigate to="/login" replace />} />
+
       <Route path="/feed" element={<ProtectedRoute><Feed /></ProtectedRoute>} />
       <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
       <Route path="/creator/:username" element={<ProtectedRoute><CreatorProfile /></ProtectedRoute>} />
