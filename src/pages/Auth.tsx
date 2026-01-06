@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { lovable } from '@/integrations/lovable/client'; // Lovable Cloud SDK
+import { lovable } from '@/integrations/lovable/client';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -24,7 +24,11 @@ const signupSchema = z.object({
   dateOfBirth: z.string().refine((date) => {
     const birthDate = new Date(date);
     const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
     return age >= 18;
   }, 'You must be 18 or older to sign up'),
 });
@@ -38,7 +42,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { signIn, signUp, refreshProfile } = useAuth();
+  const { refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   const loginForm = useForm<LoginFormData>({
@@ -54,7 +58,6 @@ export default function Auth() {
   const onLogin = async (data: LoginFormData) => {
     setLoading(true);
     setError(null);
-
     try {
       const result = await lovable.auth.signIn({ email: data.email, password: data.password });
       if (result.error) {
@@ -65,15 +68,14 @@ export default function Auth() {
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const onSignup = async (data: SignupFormData) => {
     setLoading(true);
     setError(null);
-
     try {
       const result = await lovable.auth.signUp({
         email: data.email,
@@ -91,7 +93,6 @@ export default function Auth() {
         return;
       }
 
-      // Auto-login after signup
       const loginResult = await lovable.auth.signIn({ email: data.email, password: data.password });
       if (loginResult.error) {
         setError('Signup succeeded but login failed. Please try signing in.');
@@ -103,15 +104,14 @@ export default function Auth() {
       navigate('/feed');
     } catch (err: any) {
       setError(err.message || 'Signup failed');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2">
             <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center">
@@ -133,7 +133,8 @@ export default function Auth() {
             )}
 
             {isLogin ? (
-              <Form {...loginForm}>
+              /* Added key here to reset state on toggle */
+              <Form {...loginForm} key="login-view">
                 <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                   <FormField
                     control={loginForm.control}
@@ -142,7 +143,7 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@example.com" {...field} />
+                          <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -156,7 +157,7 @@ export default function Auth() {
                         <FormLabel>Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" {...field} />
+                            <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" {...field} />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
@@ -176,7 +177,8 @@ export default function Auth() {
                 </form>
               </Form>
             ) : (
-              <Form {...signupForm}>
+              /* Added key here to reset state on toggle */
+              <Form {...signupForm} key="signup-view">
                 <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
                   <FormField
                     control={signupForm.control}
@@ -185,7 +187,7 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@example.com" {...field} />
+                          <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -198,7 +200,7 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Username</FormLabel>
                         <FormControl>
-                          <Input placeholder="johndoe" {...field} />
+                          <Input placeholder="johndoe" autoComplete="username" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -238,7 +240,7 @@ export default function Auth() {
                         <FormLabel>Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" {...field} />
+                            <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="new-password" {...field} />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
@@ -263,9 +265,12 @@ export default function Auth() {
               <p className="text-sm text-muted-foreground">
                 {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
                 <button
+                  type="button"
                   onClick={() => {
                     setIsLogin(!isLogin);
                     setError(null);
+                    loginForm.reset();
+                    signupForm.reset();
                   }}
                   className="text-primary hover:underline font-medium"
                 >
