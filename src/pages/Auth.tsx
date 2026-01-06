@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,110 +9,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { lovable } from '@/integrations/lovable/client';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-const signupSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  username: z.string().min(3, 'Username must be at least 3 characters').regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores'),
-  displayName: z.string().min(1, 'Display name is required'),
-  dateOfBirth: z.string().refine((date) => {
-    const birthDate = new Date(date);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age >= 18;
-  }, 'You must be 18 or older to sign up'),
-});
-
 type LoginFormData = z.infer<typeof loginSchema>;
-type SignupFormData = z.infer<typeof signupSchema>;
 
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { refreshProfile } = useAuth();
+  const { signIn, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
-  const loginForm = useForm<LoginFormData>({
+  const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
 
-  const signupForm = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { email: '', password: '', username: '', displayName: '', dateOfBirth: '' },
-  });
-
-  // Reset forms when switching to ensure browser doesn't cross-contaminate inputs
-  useEffect(() => {
-    if (isLogin) {
-      loginForm.reset();
-    } else {
-      signupForm.reset();
-    }
-  }, [isLogin, loginForm, signupForm]);
-
   const onLogin = async (data: LoginFormData) => {
     setLoading(true);
     setError(null);
+
     try {
-      const result = await lovable.auth.signIn({ email: data.email, password: data.password });
-      if (result.error) {
-        setError(result.error.message);
+      const { error: signInError } = await signIn(data.email, data.password);
+      
+      if (signInError) {
+        setError(signInError.message);
       } else {
         await refreshProfile();
         navigate('/feed');
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onSignup = async (data: SignupFormData) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await lovable.auth.signUp({
-        email: data.email,
-        password: data.password,
-        metadata: {
-          username: data.username,
-          display_name: data.displayName,
-          date_of_birth: data.dateOfBirth,
-        },
-      });
-
-      if (result.error) {
-        setError(result.error.message.includes('already registered') ? 'An account with this email already exists' : result.error.message);
-        setLoading(false);
-        return;
-      }
-
-      const loginResult = await lovable.auth.signIn({ email: data.email, password: data.password });
-      if (loginResult.error) {
-        setError('Signup succeeded but login failed. Please try signing in.');
-        setLoading(false);
-        return;
-      }
-
-      await refreshProfile();
-      navigate('/feed');
-    } catch (err: any) {
-      setError(err.message || 'Signup failed');
     } finally {
       setLoading(false);
     }
@@ -128,208 +60,79 @@ export default function Auth() {
             </div>
             <span className="font-display text-3xl font-bold gradient-text">FanVerse</span>
           </Link>
-          <p className="text-muted-foreground mt-2">{isLogin ? 'Welcome back!' : 'Join the community'}</p>
+          <p className="text-muted-foreground mt-2">Welcome back!</p>
         </div>
 
-        <Card className="border-border/50 relative z-50">
+        <Card className="border-border/50">
           <CardHeader>
-            <CardTitle className="font-display">{isLogin ? 'Sign In' : 'Create Account'}</CardTitle>
-            <CardDescription>{isLogin ? 'Enter your credentials to access your account' : 'Fill in your details to get started'}</CardDescription>
+            <CardTitle className="font-display text-2xl">Sign In</CardTitle>
+            <CardDescription>Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>
+              <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm border border-destructive/20">
+                {error}
+              </div>
             )}
 
-            {isLogin ? (
-              <Form {...loginForm} key="login-form-wrapper">
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onLogin)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="you@example.com" autoComplete="username" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <div className="relative">
                           <Input 
-                            type="email" 
-                            placeholder="you@example.com" 
-                            autoComplete="email" 
+                            type={showPassword ? 'text' : 'password'} 
+                            placeholder="••••••••" 
+                            autoComplete="current-password"
                             {...field} 
-                            value={field.value || ''}
                           />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input 
-                              type={showPassword ? 'text' : 'password'} 
-                              placeholder="••••••••" 
-                              autoComplete="current-password" 
-                              {...field} 
-                              value={field.value || ''}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full gradient-primary" disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In'}
-                  </Button>
-                </form>
-              </Form>
-            ) : (
-              <Form {...signupForm} key="signup-form-wrapper">
-                <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
-                  <FormField
-                    control={signupForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="text" 
-                            placeholder="you@example.com" 
-                            autoComplete="new-off"
-                            {...field}
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="johndoe" 
-                            autoComplete="off"
-                            {...field}
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value)}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Display Name</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="John Doe" 
-                            {...field} 
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="dateOfBirth"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Date of Birth</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="date" 
-                            {...field} 
-                            value={field.value || ''}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={signupForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Input 
-                              type={showPassword ? 'text' : 'password'} 
-                              placeholder="••••••••" 
-                              autoComplete="new-password" 
-                              {...field} 
-                              value={field.value || ''}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            >
-                              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full gradient-primary" disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Account'}
-                  </Button>
-                </form>
-              </Form>
-            )}
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full gradient-primary" disabled={loading}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In'}
+                </Button>
+              </form>
+            </Form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
-                {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsLogin(!isLogin);
-                    setError(null);
-                  }}
-                  className="text-primary hover:underline font-medium"
-                >
-                  {isLogin ? 'Sign Up' : 'Sign In'}
-                </button>
+                Don't have an account?{' '}
+                <Link to="/signup" className="text-primary hover:underline font-medium">
+                  Sign Up
+                </Link>
               </p>
             </div>
           </CardContent>
         </Card>
-
-        <p className="text-xs text-center text-muted-foreground mt-6">
-          By signing up, you agree to our Terms of Service and Privacy Policy.
-          <br />
-          You must be 18 or older to use this platform.
-        </p>
       </div>
     </div>
   );
