@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,7 +27,7 @@ const signupSchema = z.object({
     let age = today.getFullYear() - birthDate.getFullYear();
     const m = today.getMonth() - birthDate.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
+      age--;
     }
     return age >= 18;
   }, 'You must be 18 or older to sign up'),
@@ -54,6 +54,15 @@ export default function Auth() {
     resolver: zodResolver(signupSchema),
     defaultValues: { email: '', password: '', username: '', displayName: '', dateOfBirth: '' },
   });
+
+  // Reset forms when switching to ensure browser doesn't cross-contaminate inputs
+  useEffect(() => {
+    if (isLogin) {
+      loginForm.reset();
+    } else {
+      signupForm.reset();
+    }
+  }, [isLogin, loginForm, signupForm]);
 
   const onLogin = async (data: LoginFormData) => {
     setLoading(true);
@@ -122,7 +131,7 @@ export default function Auth() {
           <p className="text-muted-foreground mt-2">{isLogin ? 'Welcome back!' : 'Join the community'}</p>
         </div>
 
-        <Card className="border-border/50 relative z-10">
+        <Card className="border-border/50 relative z-50">
           <CardHeader>
             <CardTitle className="font-display">{isLogin ? 'Sign In' : 'Create Account'}</CardTitle>
             <CardDescription>{isLogin ? 'Enter your credentials to access your account' : 'Fill in your details to get started'}</CardDescription>
@@ -133,8 +142,7 @@ export default function Auth() {
             )}
 
             {isLogin ? (
-              /* Added key here to reset state on toggle */
-              <Form {...loginForm} key="login-view">
+              <Form {...loginForm} key="login-form-wrapper">
                 <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
                   <FormField
                     control={loginForm.control}
@@ -143,7 +151,13 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
+                          <Input 
+                            type="email" 
+                            placeholder="you@example.com" 
+                            autoComplete="email" 
+                            {...field} 
+                            value={field.value || ''}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -157,7 +171,13 @@ export default function Auth() {
                         <FormLabel>Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="current-password" {...field} />
+                            <Input 
+                              type={showPassword ? 'text' : 'password'} 
+                              placeholder="••••••••" 
+                              autoComplete="current-password" 
+                              {...field} 
+                              value={field.value || ''}
+                            />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
@@ -177,8 +197,7 @@ export default function Auth() {
                 </form>
               </Form>
             ) : (
-              /* Added key here to reset state on toggle */
-              <Form {...signupForm} key="signup-view">
+              <Form {...signupForm} key="signup-form-wrapper">
                 <form onSubmit={signupForm.handleSubmit(onSignup)} className="space-y-4">
                   <FormField
                     control={signupForm.control}
@@ -187,7 +206,14 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
-                          <Input type="email" placeholder="you@example.com" autoComplete="email" {...field} />
+                          <Input 
+                            type="text" 
+                            placeholder="you@example.com" 
+                            autoComplete="new-off"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -200,7 +226,13 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Username</FormLabel>
                         <FormControl>
-                          <Input placeholder="johndoe" autoComplete="username" {...field} />
+                          <Input 
+                            placeholder="johndoe" 
+                            autoComplete="off"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -213,7 +245,11 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Display Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" {...field} />
+                          <Input 
+                            placeholder="John Doe" 
+                            {...field} 
+                            value={field.value || ''}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -226,7 +262,11 @@ export default function Auth() {
                       <FormItem>
                         <FormLabel>Date of Birth</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <Input 
+                            type="date" 
+                            {...field} 
+                            value={field.value || ''}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -240,7 +280,13 @@ export default function Auth() {
                         <FormLabel>Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" autoComplete="new-password" {...field} />
+                            <Input 
+                              type={showPassword ? 'text' : 'password'} 
+                              placeholder="••••••••" 
+                              autoComplete="new-password" 
+                              {...field} 
+                              value={field.value || ''}
+                            />
                             <button
                               type="button"
                               onClick={() => setShowPassword(!showPassword)}
@@ -269,8 +315,6 @@ export default function Auth() {
                   onClick={() => {
                     setIsLogin(!isLogin);
                     setError(null);
-                    loginForm.reset();
-                    signupForm.reset();
                   }}
                   className="text-primary hover:underline font-medium"
                 >
