@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { lovableClient } from '@/integrations/lovable/client'; // new Lovable Cloud client
 import { Profile, AppRole } from '@/types/database';
 
 interface AuthContextType {
@@ -12,11 +12,7 @@ interface AuthContextType {
   signUp: (
     email: string,
     password: string,
-    metadata?: {
-      username?: string;
-      display_name?: string;
-      date_of_birth?: string;
-    }
+    metadata?: { username?: string; display_name?: string; date_of_birth?: string }
   ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -34,9 +30,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch user profile from Supabase
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+    const { data } = await lovableClient
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
@@ -45,9 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data) setProfile(data as Profile);
   };
 
-  // Fetch user roles from Supabase
   const fetchRoles = async (userId: string) => {
-    const { data } = await supabase
+    const { data } = await lovableClient
       .from('user_roles')
       .select('role')
       .eq('user_id', userId);
@@ -62,16 +56,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Listen to auth state changes
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = lovableClient.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          fetchProfile(session.user.id);
-          fetchRoles(session.user.id);
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+            fetchRoles(session.user.id);
+          }, 0);
         } else {
           setProfile(null);
           setRoles([]);
@@ -80,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    lovableClient.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -94,49 +89,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // SIGNUP - Fixed to create profile immediately
   const signUp = async (
     email: string,
     password: string,
     metadata?: { username?: string; display_name?: string; date_of_birth?: string }
   ) => {
     const redirectUrl = `${window.location.origin}/`;
-    const { data, error: signUpError } = await supabase.auth.signUp({
+
+    const { error } = await lovableClient.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: redirectUrl, data: metadata }
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: metadata,
+      },
     });
 
-    if (signUpError) return { error: signUpError };
-
-    // If user was created successfully, create profile row
-    if (data.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        user_id: data.user.id,
-        username: metadata?.username ?? '',
-        display_name: metadata?.display_name ?? '',
-        date_of_birth: metadata?.date_of_birth ?? null,
-      });
-
-      if (profileError) return { error: profileError };
-
-      // Fetch newly created profile
-      await fetchProfile(data.user.id);
-      await fetchRoles(data.user.id);
-    }
-
-    return { error: null };
-  };
-
-  // SIGNIN
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error };
   };
 
-  // SIGNOUT
+  const signIn = async (email: string, password: string) => {
+    const { error } = await lovableClient.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    return { error };
+  };
+
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await lovableClient.auth.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
@@ -169,8 +151,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
