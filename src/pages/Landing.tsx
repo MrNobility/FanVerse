@@ -61,10 +61,10 @@ export default function Landing() {
           </Link>
           <div className="flex items-center gap-4">
             <Button variant="ghost" asChild>
-              <Link to="/auth">Sign In</Link>
+              <Link to="/login">Sign In</Link>
             </Button>
             <Button className="gradient-primary" asChild>
-              <Link to="/auth">Get Started</Link>
+              <Link to="/signup">Get Started</Link>
             </Button>
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function Landing() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="gradient-primary text-lg px-8" asChild>
-                <Link to="/auth">
+                <Link to="/signup">
                   Start Creating
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
@@ -160,7 +160,7 @@ export default function Landing() {
                 className="text-lg px-8"
                 asChild
               >
-                <Link to="/auth">
+                <Link to="/signup">
                   Create Your Account
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
