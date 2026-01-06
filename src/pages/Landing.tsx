@@ -64,7 +64,7 @@ export default function Landing() {
               <Link to="/login">Sign In</Link>
             </Button>
             <Button className="gradient-primary" asChild>
-              <Link to="/signup">Get Started</Link>
+              <Link to="/Signup">Get Started</Link>
             </Button>
           </div>
         </div>
