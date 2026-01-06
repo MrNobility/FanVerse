@@ -75,5 +75,3 @@ const App = () => (
 );
 
 export default App;
-
-// force rebuild
